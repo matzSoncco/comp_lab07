@@ -5,11 +5,17 @@ import numpy as np
 import os
 import threading
 from datetime import datetime
+from PIL import Image
 
 IMG_DIR = "images"
 OUT_DIR = "output"
 os.makedirs(IMG_DIR, exist_ok=True)
 os.makedirs(OUT_DIR, exist_ok=True)
+
+FILTRO_IMAGENES = (
+    ("Imágenes", "*.jpg *.jpeg *.png *.bmp *.avif *.avifs *.webp *.tiff"),
+    ("Todo", "*.*"),
+)
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
@@ -19,10 +25,18 @@ def ruta_salida(nombre):
 
 
 def cargar_imagen(ruta, flags=cv2.IMREAD_COLOR):
+    """Lee la imagen con OpenCV; usa Pillow como respaldo para AVIF/WebP."""
     img = cv2.imread(ruta, flags)
-    if img is None:
-        raise FileNotFoundError(f"No se pudo abrir: {ruta}")
-    return img
+    if img is not None:
+        return img
+    # Fallback: Pillow (soporta AVIF, WebP, etc.)
+    pil = Image.open(ruta)
+    if flags == cv2.IMREAD_GRAYSCALE:
+        pil = pil.convert("L")
+        return np.array(pil)
+    pil = pil.convert("RGB")
+    arr = np.array(pil)
+    return cv2.cvtColor(arr, cv2.COLOR_RGB2BGR)
 
 
 # ── Lógica de cada tarea ───────────────────────────────────────────────────────
@@ -285,7 +299,7 @@ class DialogoTarea5(tk.Toplevel):
     def _elegir(self):
         ruta = filedialog.askopenfilename(
             title="Seleccionar imagen",
-            filetypes=[("Imágenes", "*.jpg *.jpeg *.png *.bmp"), ("Todo", "*.*")])
+            filetypes=FILTRO_IMAGENES)
         if ruta:
             self.var_ruta.set(ruta)
 
@@ -331,7 +345,7 @@ class DialogoTarea6(tk.Toplevel):
     def _elegir(self):
         ruta = filedialog.askopenfilename(
             title="Seleccionar imagen",
-            filetypes=[("Imágenes", "*.jpg *.jpeg *.png *.bmp"), ("Todo", "*.*")])
+            filetypes=FILTRO_IMAGENES)
         if ruta:
             self.var_ruta.set(ruta)
 
@@ -405,8 +419,34 @@ class App:
                        ).pack(side="left")
 
     def _panel_tareas(self, padre):
-        marco = ttk.LabelFrame(padre, text="Tareas", padding=6)
+        marco = ttk.LabelFrame(padre, text="Tareas", padding=(6, 4))
         marco.pack(fill="both", expand=True)
+        marco.rowconfigure(0, weight=1)
+        marco.columnconfigure(0, weight=1)
+
+        # Canvas + scrollbar para que quepan las 7 tareas
+        lienzo = tk.Canvas(marco, highlightthickness=0)
+        barra = ttk.Scrollbar(marco, orient="vertical", command=lienzo.yview)
+        lienzo.configure(yscrollcommand=barra.set)
+        barra.grid(row=0, column=1, sticky="ns")
+        lienzo.grid(row=0, column=0, sticky="nsew")
+
+        interior = tk.Frame(lienzo)
+        ventana_id = lienzo.create_window((0, 0), window=interior, anchor="nw")
+
+        def _actualizar_scroll(event=None):
+            lienzo.configure(scrollregion=lienzo.bbox("all"))
+
+        def _ajustar_ancho(event):
+            lienzo.itemconfig(ventana_id, width=event.width)
+
+        interior.bind("<Configure>", _actualizar_scroll)
+        lienzo.bind("<Configure>", _ajustar_ancho)
+
+        # Scroll con rueda del ratón
+        def _scroll_rueda(event):
+            lienzo.yview_scroll(int(-1 * (event.delta / 120)), "units")
+        lienzo.bind_all("<MouseWheel>", _scroll_rueda)
 
         tareas = [
             ("1. Redimensionar imágenes",
@@ -433,12 +473,12 @@ class App:
         ]
 
         for nombre, desc, cmd in tareas:
-            contenedor = tk.Frame(marco, relief="groove", bd=1)
+            contenedor = tk.Frame(interior, relief="groove", bd=1)
             contenedor.pack(fill="x", pady=3, ipady=2)
             tk.Label(contenedor, text=nombre, font=("Segoe UI", 9, "bold"),
                      anchor="w").pack(fill="x", padx=6, pady=(4, 0))
             tk.Label(contenedor, text=desc, font=("Segoe UI", 8),
-                     fg="#555", anchor="w").pack(fill="x", padx=6)
+                     fg="#555", anchor="w", wraplength=280).pack(fill="x", padx=6)
             ttk.Button(contenedor, text="Ejecutar",
                        command=cmd).pack(anchor="e", padx=6, pady=4)
 
@@ -456,7 +496,7 @@ class App:
     def _cargar_imagen(self, idx):
         ruta = filedialog.askopenfilename(
             title=f"Seleccionar imagen {idx + 1}",
-            filetypes=[("Imágenes", "*.jpg *.jpeg *.png *.bmp"), ("Todo", "*.*")])
+            filetypes=FILTRO_IMAGENES)
         if ruta:
             self.rutas[idx].set(ruta)
             self._log(f"Imagen {idx + 1} cargada: {os.path.basename(ruta)}")
