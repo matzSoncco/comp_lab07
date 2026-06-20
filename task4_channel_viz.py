@@ -1,47 +1,49 @@
+"""
+Tarea 4 – Visualización interactiva de canales
+Presiona R / G / B para activar o desactivar cada canal. Q para salir.
+"""
 import cv2
 import numpy as np
+from utils import cargar_img, pedir_imagen
 
-img = cv2.imread('output/combined_channels.jpg')
-b_ch, g_ch, r_ch = cv2.split(img)
 
-show_r = True
-show_g = True
-show_b = True
+def run(ruta):
+    img = cargar_img(ruta)
+    b_ch, g_ch, r_ch = cv2.split(img)
+    activos = [True, True, True]   # R, G, B
+    TITULO = "Tarea 4  |  R = rojo   G = verde   B = azul   Q = salir"
+    cv2.namedWindow(TITULO, cv2.WINDOW_NORMAL)
 
-WINDOW = 'Channel Visualizer  |  R=toggle red  G=toggle green  B=toggle blue  Q=quit'
-cv2.namedWindow(WINDOW, cv2.WINDOW_NORMAL)
+    while True:
+        zeros = np.zeros_like(r_ch)
+        frame = cv2.merge([
+            b_ch if activos[2] else zeros,
+            g_ch if activos[1] else zeros,
+            r_ch if activos[0] else zeros,
+        ])
 
-while True:
-    zeros = np.zeros_like(r_ch)
+        barra = np.full((32, frame.shape[1], 3), 28, dtype=np.uint8)
+        txt = (f"[R] {'ON ' if activos[0] else 'OFF'}   "
+               f"[G] {'ON ' if activos[1] else 'OFF'}   "
+               f"[B] {'ON ' if activos[2] else 'OFF'}")
+        cv2.putText(barra, txt, (10, 22),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (200, 200, 200), 1)
+        cv2.imshow(TITULO, np.vstack([frame, barra]))
 
-    r_out = r_ch if show_r else zeros
-    g_out = g_ch if show_g else zeros
-    b_out = b_ch if show_b else zeros
+        tecla = cv2.waitKey(30) & 0xFF
+        if tecla == ord('r'):
+            activos[0] = not activos[0]
+        elif tecla == ord('g'):
+            activos[1] = not activos[1]
+        elif tecla == ord('b'):
+            activos[2] = not activos[2]
+        elif tecla in (ord('q'), 27):
+            break
 
-    frame = cv2.merge([b_out, g_out, r_out])
+    cv2.destroyAllWindows()
 
-    # Burn a small status bar at the bottom
-    status = np.zeros((30, frame.shape[1], 3), dtype=np.uint8)
-    label = (f"[R] {'ON ' if show_r else 'OFF'}   "
-             f"[G] {'ON ' if show_g else 'OFF'}   "
-             f"[B] {'ON ' if show_b else 'OFF'}")
-    cv2.putText(status, label, (10, 20), cv2.FONT_HERSHEY_SIMPLEX,
-                0.55, (255, 255, 255), 1)
-    display = np.vstack([frame, status])
 
-    cv2.imshow(WINDOW, display)
-
-    key = cv2.waitKey(30) & 0xFF
-    if key == ord('r'):
-        show_r = not show_r
-        print(f"Red channel: {'ON' if show_r else 'OFF'}")
-    elif key == ord('g'):
-        show_g = not show_g
-        print(f"Green channel: {'ON' if show_g else 'OFF'}")
-    elif key == ord('b'):
-        show_b = not show_b
-        print(f"Blue channel: {'ON' if show_b else 'OFF'}")
-    elif key in (ord('q'), 27):
-        break
-
-cv2.destroyAllWindows()
+if __name__ == "__main__":
+    ruta = pedir_imagen("Seleccionar imagen")
+    if ruta:
+        run(ruta)

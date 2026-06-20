@@ -1,23 +1,45 @@
+"""
+Tarea 3 – Negativo y escala de grises
+Abre una imagen, invierte sus valores (negativo) y luego la convierte a grises.
+"""
 import cv2
 import numpy as np
+from utils import cargar_img, ruta_out, pedir_imagen
 
-# Step 1 – load combined channels image and invert every pixel value
-combined = cv2.imread('output/combined_channels.jpg')
 
-negative = 255 - combined
+def run(ruta):
+    original = cargar_img(ruta)
 
-cv2.imwrite('output/negative.png', negative)
-print("Saved -> output/negative.png  (color negative)")
+    # Negativo: invertir cada valor de píxel
+    negativo = 255 - original
+    cv2.imwrite(ruta_out("negativo.png"), negativo)
+    print("  → output/negativo.png")
 
-# Step 2 – open the negative in grayscale and save
-gray = cv2.imread('output/negative.png', cv2.IMREAD_GRAYSCALE)
+    # Escala de grises del negativo
+    gris = cv2.cvtColor(negativo, cv2.COLOR_BGR2GRAY)
+    cv2.imwrite(ruta_out("escala_grises.png"), gris)
+    print("  → output/escala_grises.png")
 
-cv2.imwrite('output/grayscale.png', gray)
-print("Saved -> output/grayscale.png  (grayscale)")
+    # Mostrar los 3 estados
+    gris_bgr = cv2.cvtColor(gris, cv2.COLOR_GRAY2BGR)
+    h = max(original.shape[0], negativo.shape[0], gris_bgr.shape[0])
+    w = original.shape[1]
 
-# Display
-cv2.imshow('Original combined', combined)
-cv2.imshow('Negative (inverted)', negative)
-cv2.imshow('Grayscale of negative', gray)
-cv2.waitKey(0)
-cv2.destroyAllWindows()
+    def pad(img):
+        return cv2.copyMakeBorder(img, 0, h - img.shape[0], 0, 0,
+                                  cv2.BORDER_CONSTANT, value=0)
+
+    comparacion = np.hstack([pad(original), pad(negativo), pad(gris_bgr)])
+    for i, lbl in enumerate(["Original", "Negativo", "Escala de grises"]):
+        cv2.putText(comparacion, lbl, (i * w + 10, 30),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2)
+
+    cv2.imshow("Tarea 3 · Original | Negativo | Grises", comparacion)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+
+if __name__ == "__main__":
+    ruta = pedir_imagen("Seleccionar imagen")
+    if ruta:
+        run(ruta)

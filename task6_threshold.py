@@ -1,38 +1,42 @@
+"""
+Tarea 6 – Umbral binario interactivo
+Mueve el deslizador para ajustar el umbral. Q para guardar y salir.
+"""
 import cv2
 import numpy as np
+from utils import cargar_img, ruta_out, pedir_imagen
 
-img_color = cv2.imread('images/person.jpg')
-img_gray  = cv2.cvtColor(img_color, cv2.COLOR_BGR2GRAY)
 
-# Binary threshold: pixels >= 127 become 255 (white), the rest become 0 (black)
-threshold_value = 127
-_, binary = cv2.threshold(img_gray, threshold_value, 255, cv2.THRESH_BINARY)
+def run(ruta, umbral_inicial=127):
+    img_color = cargar_img(ruta)
+    gris = cv2.cvtColor(img_color, cv2.COLOR_BGR2GRAY)
 
-cv2.imwrite('output/binary_threshold.png', binary)
-print(f"Saved -> output/binary_threshold.png  (threshold={threshold_value})")
+    TITULO = "Tarea 6 · Umbral binario  |  Q = guardar y salir"
+    cv2.namedWindow(TITULO, cv2.WINDOW_NORMAL)
+    cv2.createTrackbar("Umbral", TITULO, umbral_inicial, 255, lambda _: None)
 
-# Also save the grayscale source for comparison
-cv2.imwrite('output/gray_source.png', img_gray)
+    while True:
+        t = cv2.getTrackbarPos("Umbral", TITULO)
+        _, binaria = cv2.threshold(gris, t, 255, cv2.THRESH_BINARY)
 
-# Interactive: slider lets you explore different threshold values
-def nothing(x):
-    pass
+        # Mostrar original en grises y resultado lado a lado
+        lado = np.hstack([gris, binaria])
+        cv2.putText(lado, "Original (gris)", (10, 30),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, 180, 2)
+        cv2.putText(lado, f"Binaria (umbral={t})", (gris.shape[1] + 10, 30),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, 180, 2)
+        cv2.imshow(TITULO, lado)
 
-cv2.namedWindow('Threshold Explorer')
-cv2.createTrackbar('Threshold', 'Threshold Explorer', threshold_value, 255, nothing)
+        tecla = cv2.waitKey(30) & 0xFF
+        if tecla in (ord('q'), 27):
+            cv2.imwrite(ruta_out("umbral_binario.png"), binaria)
+            print(f"Guardado con umbral={t} → output/umbral_binario.png")
+            break
 
-while True:
-    t = cv2.getTrackbarPos('Threshold', 'Threshold Explorer')
-    _, thresh = cv2.threshold(img_gray, t, 255, cv2.THRESH_BINARY)
+    cv2.destroyAllWindows()
 
-    side = np.hstack([img_gray, thresh])
-    cv2.imshow('Threshold Explorer', side)
 
-    key = cv2.waitKey(30) & 0xFF
-    if key in (ord('q'), 27):
-        break
-    if key == ord('s'):
-        cv2.imwrite('output/binary_threshold.png', thresh)
-        print(f"Saved current threshold ({t}) -> output/binary_threshold.png")
-
-cv2.destroyAllWindows()
+if __name__ == "__main__":
+    ruta = pedir_imagen("Seleccionar imagen")
+    if ruta:
+        run(ruta)

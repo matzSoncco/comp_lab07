@@ -1,31 +1,45 @@
+"""
+Tarea 1 – Redimensionar imagen
+Carga una imagen y la muestra a tres escalas distintas (50 %, 100 %, 150 %)
+para ilustrar el efecto de cv2.resize con interpolación bilineal.
+"""
 import cv2
-
-img1 = cv2.imread('images/person.jpg')
-img2 = cv2.imread('images/dog.jpg')
-img3 = cv2.imread('images/cat.jpg')
-
-h1, w1 = img1.shape[:2]
-h2, w2 = img2.shape[:2]
-h3, w3 = img3.shape[:2]
-
-print(f"Original sizes -> person: {w1}x{h1}  dog: {w2}x{h2}  cat: {w3}x{h3}")
-
-max_w = max(w1, w2, w3)
-max_h = max(h1, h2, h3)
-print(f"Target size (largest): {max_w}x{max_h}")
-
-resized1 = cv2.resize(img1, (max_w, max_h), interpolation=cv2.INTER_LINEAR)
-resized2 = cv2.resize(img2, (max_w, max_h), interpolation=cv2.INTER_LINEAR)
-resized3 = cv2.resize(img3, (max_w, max_h), interpolation=cv2.INTER_LINEAR)
-
-cv2.imwrite('output/resized1_person.jpg', resized1)
-cv2.imwrite('output/resized2_dog.jpg', resized2)
-cv2.imwrite('output/resized3_cat.jpg', resized3)
-print("Saved -> output/resized1_person.jpg, resized2_dog.jpg, resized3_cat.jpg")
-
-# Display all three side by side
 import numpy as np
-row = np.hstack([resized1, resized2, resized3])
-cv2.imshow('Resized images (same size)', row)
-cv2.waitKey(0)
-cv2.destroyAllWindows()
+from utils import cargar_img, ruta_out, pedir_imagen
+
+
+def run(ruta):
+    original = cargar_img(ruta)
+    h, w = original.shape[:2]
+    print(f"Tamaño original: {w}×{h}")
+
+    escalas = [0.5, 1.0, 1.5]
+    redimensionadas = []
+    for escala in escalas:
+        nw, nh = int(w * escala), int(h * escala)
+        r = cv2.resize(original, (nw, nh), interpolation=cv2.INTER_LINEAR)
+        redimensionadas.append(r)
+        nombre = f"redimensionada_{int(escala*100)}pct.jpg"
+        cv2.imwrite(ruta_out(nombre), r)
+        print(f"  {int(escala*100)}% → {nw}×{nh}  →  output/{nombre}")
+
+    # Escalar todas al mismo alto para poder mostrarlas juntas
+    alto_max = max(img.shape[0] for img in redimensionadas)
+    paneles = []
+    for img, esc in zip(redimensionadas, escalas):
+        panel = cv2.resize(img, (int(img.shape[1] * alto_max / img.shape[0]), alto_max))
+        etiqueta = f"{int(esc*100)}%  ({img.shape[1]}x{img.shape[0]})"
+        cv2.putText(panel, etiqueta, (8, 28),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+        paneles.append(panel)
+
+    comparacion = np.hstack(paneles)
+    cv2.imshow("Tarea 1 · Redimensionado  50% | 100% | 150%", comparacion)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+
+if __name__ == "__main__":
+    ruta = pedir_imagen("Seleccionar imagen")
+    if ruta:
+        run(ruta)
